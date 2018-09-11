@@ -6,17 +6,15 @@ var renderer = PIXI.autoDetectRenderer(640, 480, {
 document.body.appendChild(renderer.view);
 
 const stage = new PIXI.Container();
-const tl = new TimelineMax();
+const mainTL = new TimelineMax();
 
 let levels;
 let gameStep = 0;
+let modifiersIndex = 0;
 
-let track, initial, final, modifiers;
+let track, initial, final, modifiers, puzzleName, debug;
 
 loadLevels();
-render();
-// animate();
-
 function loadLevels() {
 	request = new XMLHttpRequest();
 	request.open('GET', '/levels.json', true);
@@ -26,31 +24,63 @@ function loadLevels() {
 			levels = JSON.parse(request.responseText);
 
 			// Once levels are loaded, we can setup puzzle
-			setupPuzzle();
+			onLoaded();
 		}
 	};
 
 	request.send();
 }
 
+function onLoaded() {
+	setupPuzzle();
+}
+
 function setupPuzzle() {
-	const pad = 50;
-	setupTrack(pad);
+	// TODO: remove debug
+	debug = new PIXI.Graphics();
+	debug.beginFill('0xff0000', 0.25);
+	debug.lineStyle(1, '0xff0000');
+	stage.addChild(debug);
 
-	initial = new PIXI.Graphics();
-	stage.addChild(initial);
-	drawBlock(initial, levels[gameStep].initial);
-	initial.position.set(pad, renderer.height / 2);
+	setupPuzzleName(levels[gameStep].name);
 
-	final = new PIXI.Graphics();
-	stage.addChild(final);
-	drawBlock(final, levels[gameStep].final);
-	final.position.set(renderer.width - pad, renderer.height / 2);
+	const positioningPad = 50;
+	setupTrack(positioningPad);
+
+	final = getBlock(positioningPad, levels[gameStep].final, true);
+	initial = getBlock(positioningPad, levels[gameStep].initial, false);
 
 	modifiers = [];
 	setupModifiers(levels[gameStep].modifiers);
 
+	const { type } = levels[gameStep].modifiers[0];
+	repositionModifiers(type);
+	setModifiersVisibility(type);
+
+	updateZOrder();
+
 	render();
+	const { isCorrect, isFinalAnswer } = validateAnswer();
+	animateFeedback({ isCorrect, isFinalAnswer });
+}
+
+function setupPuzzleName(name) {
+	const style = {
+		fontFamily: 'Arial',
+		fontSize: 32,
+		fill: '0xff1010',
+		dropShadow: true,
+		dropShadowBlur: 20,
+		dropShadowAlpha: 0.25,
+		strokeThickness: 1
+	};
+	puzzleName = new PIXI.Text(name, style);
+
+	stage.addChild(puzzleName);
+	puzzleName.anchor.set(0.5, 0.5);
+	puzzleName.x = renderer.width / 2;
+	puzzleName.y = puzzleName.height;
+	puzzleName.alpha = 0;
 }
 
 function setupTrack(pad = 50) {
@@ -62,24 +92,26 @@ function setupTrack(pad = 50) {
 	track.drawRect(pad, renderer.height / 2, renderer.width - 2 * pad, 5);
 }
 
-function drawBlock(graphics, { size, color }) {
-	// Format color to be compatible with Graphics method
-	color = color.replace('#', '0x');
-	graphics.beginFill(color);
+function getBlock(positioningPad = 50, { size, color }, isFinal) {
+	const blockGraphics = new PIXI.Graphics();
+	stage.addChild(blockGraphics);
+	drawBlock(blockGraphics, { size, color }, isFinal);
 
-	// Set dimensions
-	const width = 40;
-	const height = size === 1 ? width : 2 * width;
+	blockGraphics.x = isFinal ? renderer.width - positioningPad : positioningPad;
+	blockGraphics.y = renderer.height / 2;
 
-	// Draw block
-	graphics.lineStyle(3, '0x000000');
-	graphics.drawRoundedRect(-width / 2, -height / 2, width, height, 3);
+	return {
+		block: blockGraphics,
+		properties: {
+			size: Number(size),
+			color: formatColor(color)
+		}
+	};
 }
 
 function setupModifiers(levelModifiers) {
 	if (levelModifiers[0].type === 'select') {
-		setupModifiers(levelModifiers[0].options);
-		return;
+		levelModifiers = levelModifiers[0].options;
 	}
 
 	modifiers = Array(levelModifiers.length);
@@ -93,85 +125,74 @@ function setupModifiers(levelModifiers) {
 				break;
 		}
 	});
-
-	repositionModifiers();
 }
 
-function setupSizeModifier(size, index) {
-	const modifierBlock = new PIXI.Graphics();
-	stage.addChild(modifierBlock);
+function repositionModifiers(type) {
+	if (type !== 'select') {
+		// Position modifiers along all track
+		let currentXPosition = initial.block.x;
+		const available = final.block.x - initial.block.x;
+		const increase = available / (modifiers.length + 1);
 
-	// Define dimensions
-	const width = 40;
+		modifiers.forEach(modifier => {
+			currentXPosition += increase;
 
-	modifierBlock.lineStyle(2, '0xffffff');
-	modifierBlock.beginFill('0x000000');
-	modifierBlock.drawRoundedRect(-width / 2, -width / 2, width, width, 2);
-	modifierBlock.endFill();
-
-	if (size === 1) {
-		drawSmallModifier(modifierBlock, width);
+			modifier.block.x = currentXPosition;
+			modifier.block.y = final.block.y;
+		});
 	} else {
-		drawLargeModifier(modifierBlock, width);
+		// Position modifiers in the center
+		modifiers.forEach(modifier => {
+			modifier.block.x = (final.block.x - initial.block.x) / 2;
+			modifier.block.y = final.block.y;
+		});
 	}
-
-	modifiers[index] = modifierBlock;
 }
 
-function drawSmallModifier(graphics, size) {
-	const pad = 4;
-
-	graphics.lineStyle(1, '0xffffff');
-	graphics.beginFill('0xffffff');
-
-	// Bottom triangle, pointing up
-	graphics.moveTo(size / 2 - pad, size / 2 - pad);
-	graphics.lineTo(-(size / 2) + pad, size / 2 - pad);
-	graphics.lineTo(0, pad);
-
-	// Upper traingle, pointing down
-	graphics.moveTo(size / 2 - pad, -size / 2 + pad);
-	graphics.lineTo(-size / 2 + pad, -size / 2 + pad);
-	graphics.lineTo(0, -pad);
-	graphics.endFill();
-}
-
-function drawLargeModifier(graphics, size) {
-	const pad = 4;
-
-	graphics.lineStyle(1, '0xffffff');
-	graphics.beginFill('0xffffff');
-
-	// Bottom triangle, pointing down
-	graphics.moveTo(size / 2 - pad, pad);
-	graphics.lineTo(-(size / 2) + pad, pad);
-	graphics.lineTo(0, size / 2 - pad);
-
-	// Upper triangle, pointing up
-	graphics.moveTo(size / 2 - pad, -pad);
-	graphics.lineTo(-size / 2 + pad, -pad);
-	graphics.lineTo(0, -size / 2 + pad);
-	graphics.endFill();
-}
-
-function repositionModifiers() {
-	let currentXPosition = initial.x;
-	const available = final.x - initial.x;
-	const increase = available / (modifiers.length + 1);
-
-	modifiers.forEach(modifier => {
-		currentXPosition += increase;
-
-		modifier.x = currentXPosition;
-		modifier.y = renderer.height / 2;
+function setModifiersVisibility(type) {
+	// Hide all modifiers if we're in select mode
+	modifiers.forEach((modifier, index) => {
+		modifier.block.visible = type !== 'select';
 	});
+
+	// Except for the first, that should be always visible
+	modifiers[0].block.visible = true;
+}
+
+function updateZOrder() {
+	const lastIndex = stage.children.length - 1;
+	stage.setChildIndex(final.block, lastIndex);
+	stage.setChildIndex(initial.block, lastIndex);
 }
 
 function render() {
 	renderer.render(stage);
 }
 
-// function animate() {
-// 	requestAnimationFrame(animate);
-// 	renderer.render(stage);
-// }
+function validateAnswer() {
+	// First we should check if initial and end blocks are matching
+	const isCorrect =
+		initial.properties.color === final.properties.color &&
+		initial.properties.size === final.properties.size;
+
+	const isFinalAnswer = gameStep === levels.length - 1;
+
+	return { isCorrect, isFinalAnswer };
+}
+
+function animateFeedback({ isCorrect, isFinalAnswer }) {
+	animatePuzzleName();
+	modifiers.forEach(modifier => {
+		animateModifier(modifier.block.x, modifier.properties);
+	});
+
+	animateFinalBlock(isCorrect);
+
+	if (isFinalAnswer) {
+		animateEndGame();
+	} else {
+		animateStepTransition();
+	}
+
+	animate();
+}
