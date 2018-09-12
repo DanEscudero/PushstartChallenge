@@ -1,3 +1,9 @@
+/**
+ * Draws block in graphics according to properties
+ * @param {*} graphics to be drawn
+ * @param {*} param1 Block properties
+ * @param {*} isFinal
+ */
 function drawBlock(graphics, { size, color }, isFinal = false) {
 	// Format color to be compatible with Graphics method
 	color = formatColor(color);
@@ -31,6 +37,11 @@ function drawBlock(graphics, { size, color }, isFinal = false) {
 	}
 }
 
+/**
+ * Draws color modifier, adds to array
+ * @param {*} color
+ * @param {*} index
+ */
 function setupColorModifier(color, index) {
 	const modifierBlock = new PIXI.Graphics();
 	stage.addChild(modifierBlock);
@@ -53,6 +64,11 @@ function setupColorModifier(color, index) {
 	};
 }
 
+/**
+ * Draws size modifier, add to array
+ * @param {*} size
+ * @param {*} index
+ */
 function setupSizeModifier(size, index) {
 	const modifierBlock = new PIXI.Graphics();
 	stage.addChild(modifierBlock);
@@ -81,6 +97,11 @@ function setupSizeModifier(size, index) {
 	};
 }
 
+/**
+ * Draw details of shrink modifier
+ * @param {*} graphics to be drawn
+ * @param {*} size
+ */
 function drawShrinkModifier(graphics, size) {
 	const pad = 4;
 
@@ -99,6 +120,11 @@ function drawShrinkModifier(graphics, size) {
 	graphics.endFill();
 }
 
+/**
+ * Draw details of enlarge modifier
+ * @param {*} graphics to be drawn
+ * @param {*} size
+ */
 function drawEnlargeModifier(graphics, size) {
 	const pad = 4;
 

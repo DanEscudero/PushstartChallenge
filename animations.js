@@ -3,6 +3,9 @@ function animate() {
 	renderer.render(stage);
 }
 
+/**
+ * Animates puzzle name
+ */
 function animatePuzzleName() {
 	const duration = 0.4;
 	const delay = 1;
@@ -15,11 +18,15 @@ function animatePuzzleName() {
 		.to(puzzleName, duration, { alpha: 1 }, 'introLabel')
 		.to(puzzleName.scale, duration, { x: 1.25, y: 1.25 }, 'introLabel')
 		.to(puzzleName.scale, duration, { x: 1, y: 1 })
-		.to(puzzleName, 0.25, { delay: 0.5, alpha: 0 })
-		.to({}, 1, {});
+		.to(puzzleName, 0.25, { delay: 0.5, alpha: 0 });
 }
 
-function animateModifier(xPosition, { type = -1, color = -1, size = -1, index = -1 }) {
+/**
+ * Animates individual transformation
+ * @param {*} xPosition Position of modifier
+ * @param {*} param1 Properties of trasformer
+ */
+function animateTransformation(xPosition, { type = -1, color = -1, size = -1 }) {
 	const transformedProperties =
 		type === 'size'
 			? { size, color: initial.properties.color }
@@ -49,6 +56,10 @@ function animateModifier(xPosition, { type = -1, color = -1, size = -1, index = 
 	initial.properties = transformedProperties;
 }
 
+/**
+ * Animates initial block hitting or fitting with final block
+ * @param {*} isCorrect
+ */
 function animateFinalBlock(isCorrect) {
 	const finalTL = new TimelineMax();
 	mainTL.add(finalTL);
@@ -66,15 +77,19 @@ function animateFinalBlock(isCorrect) {
 		const target2 = lastModifier.block.x + xDifference * 0.5;
 
 		finalTL
-			.add(new TweenMax.to(initial.block, 0.75, { x: target1 }))
-			.add(new TweenMax.to(initial.block, 0.75, { x: target2 }));
+			.add(new TweenMax.to(initial.block, 0.75, { x: target1, ease: Power2.easeIn }))
+			.add(new TweenMax.to(initial.block, 0.75, { x: target2, ease: Power2.easeOut }));
 	}
 }
 
-animateStepTransition() {
-	console.warn('StepTransition - TODO');
+/**
+ * Hide all components
+ */
+function hideAll() {
+	const components = [track, initial.block, final.block].concat(modifiers.map(m => m.block));
+	components.forEach(component => mainTL.add(() => (component.visible = false)));
 }
 
-animateEndGame() {
+function animateEndGame() {
 	console.warn('EndGame - TODO');
 }

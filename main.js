@@ -15,6 +15,10 @@ let modifiersIndex = 0;
 let track, initial, final, modifiers, puzzleName, debug;
 
 loadLevels();
+
+/**
+ * Loads levels json, calls onLoaded when done
+ */
 function loadLevels() {
 	request = new XMLHttpRequest();
 	request.open('GET', '/levels.json', true);
@@ -31,17 +35,19 @@ function loadLevels() {
 	request.send();
 }
 
+/**
+ * Starts animations, creates Puzzle and animates puzzle name
+ */
 function onLoaded() {
+	animate();
 	setupPuzzle();
+	animatePuzzleName();
 }
 
+/**
+ * Creates puzzle - setup blocks, modifiers, puzzle name and track
+ */
 function setupPuzzle() {
-	// TODO: remove debug
-	debug = new PIXI.Graphics();
-	debug.beginFill('0xff0000', 0.25);
-	debug.lineStyle(1, '0xff0000');
-	stage.addChild(debug);
-
 	setupPuzzleName(levels[gameStep].name);
 
 	const positioningPad = 50;
@@ -49,21 +55,31 @@ function setupPuzzle() {
 
 	final = getBlock(positioningPad, levels[gameStep].final, true);
 	initial = getBlock(positioningPad, levels[gameStep].initial, false);
+	createButton(initial);
 
 	modifiers = [];
 	setupModifiers(levels[gameStep].modifiers);
 
 	const { type } = levels[gameStep].modifiers[0];
 	repositionModifiers(type);
-	setModifiersVisibility(type);
+	if (type === 'select') {
+		setModifiersVisibility(type);
+	}
 
 	updateZOrder();
 
+	if (type === 'select') {
+		modifiers.forEach(modifier => createButton(modifier));
+	}
+
+	enableInput();
 	render();
-	const { isCorrect, isFinalAnswer } = validateAnswer();
-	animateFeedback({ isCorrect, isFinalAnswer });
 }
 
+/**
+ * Creates puzzle name
+ * @param {*} name
+ */
 function setupPuzzleName(name) {
 	const style = {
 		fontFamily: 'Arial',
@@ -83,15 +99,25 @@ function setupPuzzleName(name) {
 	puzzleName.alpha = 0;
 }
 
-function setupTrack(pad = 50) {
+/**
+ * Setups track
+ * @param {*} positioningPad
+ */
+function setupTrack(positioningPad = 50) {
 	track = new PIXI.Graphics();
 	stage.addChild(track);
 
 	track.lineStyle(1, '0x000000');
 	track.beginFill('0xf0f0f0');
-	track.drawRect(pad, renderer.height / 2, renderer.width - 2 * pad, 5);
+	track.drawRect(positioningPad, renderer.height / 2, renderer.width - 2 * positioningPad, 5);
 }
 
+/**
+ * returns object with block and properties
+ * @param {*} positioningPad
+ * @param {*} param1 Block properties
+ * @param {*} isFinal If is or not final block
+ */
 function getBlock(positioningPad = 50, { size, color }, isFinal) {
 	const blockGraphics = new PIXI.Graphics();
 	stage.addChild(blockGraphics);
@@ -109,6 +135,10 @@ function getBlock(positioningPad = 50, { size, color }, isFinal) {
 	};
 }
 
+/**
+ * Sets all modifiers
+ * @param {*} levelModifiers
+ */
 function setupModifiers(levelModifiers) {
 	if (levelModifiers[0].type === 'select') {
 		levelModifiers = levelModifiers[0].options;
@@ -127,6 +157,10 @@ function setupModifiers(levelModifiers) {
 	});
 }
 
+/**
+ * Positions all modifiers along the track
+ * @param {*} type If it's 'select', modifiers have a different behavior
+ */
 function repositionModifiers(type) {
 	if (type !== 'select') {
 		// Position modifiers along all track
@@ -143,56 +177,149 @@ function repositionModifiers(type) {
 	} else {
 		// Position modifiers in the center
 		modifiers.forEach(modifier => {
-			modifier.block.x = (final.block.x - initial.block.x) / 2;
+			modifier.block.x = (final.block.x + initial.block.x) / 2;
 			modifier.block.y = final.block.y;
 		});
 	}
 }
 
-function setModifiersVisibility(type) {
-	// Hide all modifiers if we're in select mode
-	modifiers.forEach((modifier, index) => {
-		modifier.block.visible = type !== 'select';
-	});
+/**
+ * Hides all modifiers but the first
+ * @param {*} type
+ */
+function setModifiersVisibility() {
+	modifiers.forEach(modifier => (modifier.block.visible = false));
 
 	// Except for the first, that should be always visible
 	modifiers[0].block.visible = true;
 }
 
+/**
+ * Fixes z-Order to make sure moving blocks are in front of stopped blocks
+ */
 function updateZOrder() {
 	const lastIndex = stage.children.length - 1;
 	stage.setChildIndex(final.block, lastIndex);
 	stage.setChildIndex(initial.block, lastIndex);
 }
 
+/**
+ * Renders stage
+ */
 function render() {
 	renderer.render(stage);
 }
 
+/**
+ * Sets any component as a button
+ * @param {*} button
+ */
+function createButton(button) {
+	const { block } = button;
+	block.buttonMode = true;
+
+	block.on('mousedown', () => onUserClick(button));
+}
+
+/**
+ * Reacts to user click
+ * @param {*} component Clicked component
+ */
+function onUserClick(component) {
+	// This function receives either initial button or one of the modifiers
+	if (component === initial) {
+		// Disable input, to avoid any over clicking
+		disableInput();
+
+		// Validate answer to decide what kind of feedback should we have
+		const { isCorrect, isFinalAnswer } = validateAnswer();
+
+		// Animate feedback - block walking on track and transforming along the way
+		animateFeedback(isCorrect);
+
+		// If it's not final answer, we go to next step
+		if (!isFinalAnswer) {
+			mainTL.add(() => {
+				hideAll();
+
+				gameStep += isCorrect;
+				setupPuzzle();
+
+				animatePuzzleName();
+			}, '+=1');
+		}
+	} else {
+		modifiers[modifiersIndex].block.visible = false;
+		modifiersIndex = (modifiersIndex + 1) % modifiers.length;
+		modifiers[modifiersIndex].block.visible = true;
+	}
+}
+
+/**
+ * Disables user input
+ */
+function disableInput() {
+	initial.block.interactive = false;
+	modifiers.forEach(modifier => (modifier.block.interactive = false));
+}
+
+/**
+ * Enables user input
+ */
+function enableInput() {
+	initial.block.interactive = true;
+	modifiers.forEach(modifier => (modifier.block.interactive = true));
+}
+
+/**
+ * Compares transformed with final block. Also, returns if current step is the last one
+ */
 function validateAnswer() {
-	// First we should check if initial and end blocks are matching
+	// Lets check if initial and end blocks are matching
+	const currentLevel = levels[gameStep];
+	const { type } = currentLevel.modifiers[0];
+
+	const initialBlock = Object.assign({}, initial.properties);
+	// Lets apply just one modification - the selected one
+	if (type === 'select') {
+		const modifier = modifiers[modifiersIndex];
+		Object.assign(initialBlock, modifier.properties);
+	} else {
+		// Lets apply all modifications
+		modifiers.forEach(modifier => {
+			Object.assign(initialBlock, modifier.properties);
+		});
+	}
+
 	const isCorrect =
-		initial.properties.color === final.properties.color &&
-		initial.properties.size === final.properties.size;
+		initialBlock.color === final.properties.color &&
+		initialBlock.size === final.properties.size;
 
 	const isFinalAnswer = gameStep === levels.length - 1;
 
 	return { isCorrect, isFinalAnswer };
 }
 
-function animateFeedback({ isCorrect, isFinalAnswer }) {
-	animatePuzzleName();
-	modifiers.forEach(modifier => {
-		animateModifier(modifier.block.x, modifier.properties);
-	});
+/**
+ * Animates feedback
+ * @param {*} isCorrect
+ */
+function animateFeedback(isCorrect) {
+	const currentLevel = levels[gameStep];
+	const { type } = currentLevel.modifiers[0];
 
-	animateFinalBlock(isCorrect);
-
-	if (isFinalAnswer) {
-		animateEndGame();
+	if (type !== 'select') {
+		// We animate for all blocks
+		modifiers.forEach(modifier => {
+			animateTransformation(modifier.block.x, modifier.properties);
+			Object.assign(initial.properties, modifier.properties);
+		});
 	} else {
-		animateStepTransition();
+		// Else, animate just for the selected one
+		const modifier = modifiers[modifiersIndex];
+		animateTransformation(modifier.block.x, modifier.properties);
+		Object.assign(initial.properties, modifier.properties);
 	}
 
-	animate();
+	animateFinalBlock(isCorrect);
 }
