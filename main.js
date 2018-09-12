@@ -227,31 +227,32 @@ function createButton(button) {
  */
 function onUserClick(component) {
 	// This function receives either initial button or one of the modifiers
-	if (component === initial) {
-		// Disable input, to avoid any over clicking
-		disableInput();
-
-		// Validate answer to decide what kind of feedback should we have
-		const { isCorrect, isFinalAnswer } = validateAnswer();
-
-		// Animate feedback - block walking on track and transforming along the way
-		animateFeedback(isCorrect);
-
-		// If it's not final answer, we go to next step
-		if (!isFinalAnswer) {
-			mainTL.add(() => {
-				hideAll();
-
-				gameStep += isCorrect;
-				setupPuzzle();
-
-				animatePuzzleName();
-			}, '+=1');
-		}
-	} else {
+	if (component !== initial) {
 		modifiers[modifiersIndex].block.visible = false;
 		modifiersIndex = (modifiersIndex + 1) % modifiers.length;
 		modifiers[modifiersIndex].block.visible = true;
+		return;
+	}
+
+	// Disable input, to avoid any over clicking
+	disableInput();
+
+	// Validate answer to decide what kind of feedback should we have
+	const { isCorrect, isFinalAnswer } = validateAnswer();
+
+	// Animate feedback - block walking on track and transforming along the way
+	animateFeedback(isCorrect, isFinalAnswer);
+
+	// If it's not final answer, we go to next step
+	if (!isFinalAnswer) {
+		mainTL.add(() => {
+			hideAll();
+
+			gameStep += isCorrect;
+			setupPuzzle();
+
+			animatePuzzleName();
+		}, '+=1');
 	}
 }
 
@@ -304,7 +305,7 @@ function validateAnswer() {
  * Animates feedback
  * @param {*} isCorrect
  */
-function animateFeedback(isCorrect) {
+function animateFeedback(isCorrect, isFinalAnswer) {
 	const currentLevel = levels[gameStep];
 	const { type } = currentLevel.modifiers[0];
 
@@ -322,4 +323,8 @@ function animateFeedback(isCorrect) {
 	}
 
 	animateFinalBlock(isCorrect);
+
+	if (isFinalAnswer) {
+		animateEndGame();
+	}
 }

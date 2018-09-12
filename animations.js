@@ -90,6 +90,58 @@ function hideAll() {
 	components.forEach(component => mainTL.add(() => (component.visible = false)));
 }
 
+/**
+ * Hide all components
+ */
+function outAnimation() {
+	const components = [track, initial.block, final.block].concat(modifiers.map(m => m.block));
+	mainTL.add(TweenMax.to(components, 0.75, { x: `+=${1.25 * stage.width}` }));
+}
+
+/**
+ * Animates out transition and credits
+ */
 function animateEndGame() {
-	console.warn('EndGame - TODO');
+	let style = {
+		fontFamily: 'Arial',
+		fontSize: 14,
+		fill: '0x000000',
+		strokeThickness: 1,
+		align: 'center',
+		wordWrap: true,
+		wordWrapWidth: 200
+	};
+	const creditsText = getCreditsText();
+	const credits = new PIXI.Text(creditsText, style);
+
+	stage.addChild(credits);
+	credits.anchor.set(0.5, 0);
+	credits.x = renderer.width / 2;
+	credits.y = renderer.height;
+
+	style = {
+		fontFamily: 'Arial',
+		fontSize: 32,
+		fill: '0xff1010',
+		dropShadow: true,
+		dropShadowBlur: 20,
+		dropShadowAlpha: 0.25,
+		strokeThickness: 1
+	};
+	const thanks = new PIXI.Text('Thanks for playing!', style);
+
+	stage.addChild(thanks);
+	thanks.anchor.set(0.5, 0.5);
+	thanks.x = renderer.width / 2;
+	thanks.y = renderer.height + thanks.height;
+
+	outAnimation();
+	const delay = mainTL.duration();
+	const duration = 2;
+
+	const tallerBlockHeight = Math.max(final.block.height, final.block.height);
+	const yTarget = track.y + tallerBlockHeight / 2 + thanks.height;
+
+	TweenMax.to(credits, duration, { y: -credits.height, ease: Power0.easeNone }).delay(delay);
+	TweenMax.to(thanks, 1, { y: yTarget, ease: Back.easeOut }).delay(delay + duration + 0.75);
 }

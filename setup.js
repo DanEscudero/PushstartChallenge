@@ -142,3 +142,31 @@ function drawEnlargeModifier(graphics, size) {
 	graphics.lineTo(0, -size / 2 + pad);
 	graphics.endFill();
 }
+
+/**
+ *
+ * @param {*} numWords number of words in the text
+ */
+function getCreditsText(numWords = 200) {
+	const bla = [
+		'cup',
+		'steam',
+		'true',
+		'pretend',
+		'illegal',
+		'fresh',
+		'scrape',
+		'eyes',
+		'plausible',
+		'swim',
+		'water',
+		'wholesale'
+	];
+
+	let text = '';
+	for (let i = 0; i < numWords; i++) {
+		text += bla[Math.floor(Math.random() * bla.length)] + ' ';
+	}
+
+	return text;
+}
