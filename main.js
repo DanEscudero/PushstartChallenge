@@ -24,7 +24,6 @@ function loadLevels() {
 	console.log('Loading Levels...');
 	request = new XMLHttpRequest();
 	request.open('GET', '/levels.json', true);
-	request.addEventListener('error', onFail, false);
 
 	request.onload = () => {
 		if (request.status >= 200 && request.status < 400) {
@@ -34,12 +33,8 @@ function loadLevels() {
 			console.log('Levels loaded!');
 			onLoaded();
 		} else {
-			console.error(request.status);
+			console.error('Failed to load Levels', request.status);
 		}
-	};
-
-	onFail = evt => {
-		alert('Error on loading levels', evt);
 	};
 
 	request.send();
