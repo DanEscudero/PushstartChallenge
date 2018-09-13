@@ -14,12 +14,14 @@ let modifiersIndex = 0;
 
 let track, initial, final, modifiers, puzzleName, debug;
 
+console.log('Initializing...');
 loadLevels();
 
 /**
  * Loads levels json, calls onLoaded when done
  */
 function loadLevels() {
+	console.log('Loading Levels...');
 	request = new XMLHttpRequest();
 	request.open('GET', '/levels.json', true);
 
@@ -28,7 +30,10 @@ function loadLevels() {
 			levels = JSON.parse(request.responseText);
 
 			// Once levels are loaded, we can setup puzzle
+			console.log('Levels loaded!');
 			onLoaded();
+		} else {
+			console.error(request.status);
 		}
 	};
 
