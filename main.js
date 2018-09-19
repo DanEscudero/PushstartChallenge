@@ -23,7 +23,7 @@ loadLevels();
 function loadLevels() {
 	console.log('Loading Levels...');
 	request = new XMLHttpRequest();
-	request.open('GET', '/levels.json', true);
+	request.open('GET', 'levels.json', true);
 
 	request.onload = () => {
 		if (request.status >= 200 && request.status < 400) {
